@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from app.core.config import settings
 
-app = FastAPI(title="Fast Blog API")
+app = FastAPI(title=settings.PROJECT_NAME)
 
 @app.get("/")
 def read_root():
-    return {"message": "fast-blog API is running"}
+    return {"message": f"{settings.PROJECT_NAME} is running"}
