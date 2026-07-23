@@ -4,6 +4,7 @@ sys.path.append(str(Path(__file__).parents[1]))
 
 from app.core.config import settings
 from app.db.base import Base
+import app.models  # noqa: F401 — models registered with Base.metadata here
 
 from logging.config import fileConfig
 
