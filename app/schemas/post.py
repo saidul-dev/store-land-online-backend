@@ -13,6 +13,7 @@ class PostCreate(PostBase):
 
 class PostRead(PostBase):
     id: int
+    author_id: int
     created_at: datetime
     updated_at: datetime
 
