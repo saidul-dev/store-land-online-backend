@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from app.core.config import settings
-from app.api import posts, auth
+from app.api import posts, auth, comment
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
 app.include_router(auth.router)
 app.include_router(posts.router)
-
+app.include_router(comment.router)
 
 @app.get("/")
 def read_root():
