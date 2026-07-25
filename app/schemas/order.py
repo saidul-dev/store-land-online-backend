@@ -7,7 +7,7 @@ from app.core.order_status import ORDER_STATUSES
 
 
 class OrderItemCreate(BaseModel):
-    product_id: int
+    variant_id: int
     quantity: int = Field(gt=0)
 
 
@@ -17,7 +17,7 @@ class OrderCreate(BaseModel):
 
 class OrderItemRead(BaseModel):
     id: int
-    product_id: int
+    variant_id: int
     quantity: int
     unit_price: Decimal
 

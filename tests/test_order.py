@@ -12,24 +12,24 @@ def _create_store(client, headers, subdomain):
     return response.json()["id"]
 
 
-def _create_product(client, headers, store_id, sku="SKU-1", price="10.00", stock=5):
+def _create_variant(client, headers, store_id, sku="SKU-1", price="10.00", stock=5):
     response = client.post(
         f"/api/v1/stores/{store_id}/products/",
-        json={"name": "Widget", "sku": sku, "price": price, "stock_quantity": stock},
+        json={"name": "Widget", "variants": [{"sku": sku, "price": price, "stock_quantity": stock}]},
         headers=headers,
     )
-    return response.json()["id"]
+    return response.json()["variants"][0]["id"]
 
 
 def test_checkout_creates_order_and_decrements_stock(client):
     owner_headers = _register_and_login(client, "oowner@example.com")
     customer_headers = _register_and_login(client, "ocustomer@example.com")
     store_id = _create_store(client, owner_headers, "checkoutstore")
-    product_id = _create_product(client, owner_headers, store_id, stock=5)
+    variant_id = _create_variant(client, owner_headers, store_id, stock=5)
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 2}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 2}]},
         headers=customer_headers,
     )
     assert response.status_code == 201
@@ -37,32 +37,33 @@ def test_checkout_creates_order_and_decrements_stock(client):
     assert body["total_amount"] == "20.00"
     assert body["status"] == "pending"
 
-    product_response = client.get(f"/api/v1/stores/{store_id}/products/{product_id}")
-    assert product_response.json()["stock_quantity"] == 3
+    product_id = client.get(f"/api/v1/stores/{store_id}/products/").json()[0]["id"]
+    product = client.get(f"/api/v1/stores/{store_id}/products/{product_id}").json()
+    assert product["variants"][0]["stock_quantity"] == 3
 
 
 def test_checkout_insufficient_stock_fails(client):
     owner_headers = _register_and_login(client, "oowner2@example.com")
     customer_headers = _register_and_login(client, "ocustomer2@example.com")
     store_id = _create_store(client, owner_headers, "lowstock")
-    product_id = _create_product(client, owner_headers, store_id, stock=1)
+    variant_id = _create_variant(client, owner_headers, store_id, stock=1)
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 5}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 5}]},
         headers=customer_headers,
     )
     assert response.status_code == 400
 
 
-def test_checkout_unknown_product_fails(client):
+def test_checkout_unknown_variant_fails(client):
     owner_headers = _register_and_login(client, "oowner3@example.com")
     customer_headers = _register_and_login(client, "ocustomer3@example.com")
-    store_id = _create_store(client, owner_headers, "unknownproduct")
+    store_id = _create_store(client, owner_headers, "unknownvariant")
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": 999999, "quantity": 1}]},
+        json={"items": [{"variant_id": 999999, "quantity": 1}]},
         headers=customer_headers,
     )
     assert response.status_code == 404
@@ -72,11 +73,11 @@ def test_list_my_orders(client):
     owner_headers = _register_and_login(client, "oowner4@example.com")
     customer_headers = _register_and_login(client, "ocustomer4@example.com")
     store_id = _create_store(client, owner_headers, "mineorders")
-    product_id = _create_product(client, owner_headers, store_id)
+    variant_id = _create_variant(client, owner_headers, store_id)
 
     client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
         headers=customer_headers,
     )
 
@@ -98,11 +99,11 @@ def test_owner_can_view_any_order_and_customer_can_view_own(client):
     owner_headers = _register_and_login(client, "oowner6@example.com")
     customer_headers = _register_and_login(client, "ocustomer6@example.com")
     store_id = _create_store(client, owner_headers, "vieworder")
-    product_id = _create_product(client, owner_headers, store_id)
+    variant_id = _create_variant(client, owner_headers, store_id)
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
         headers=customer_headers,
     ).json()["id"]
 
@@ -120,11 +121,11 @@ def test_other_customer_cannot_view_order(client):
     customer_headers = _register_and_login(client, "ocustomer7@example.com")
     other_customer_headers = _register_and_login(client, "ocustomer7b@example.com")
     store_id = _create_store(client, owner_headers, "otherorder")
-    product_id = _create_product(client, owner_headers, store_id)
+    variant_id = _create_variant(client, owner_headers, store_id)
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
         headers=customer_headers,
     ).json()["id"]
 
@@ -138,11 +139,11 @@ def test_staff_can_update_order_status(client):
     owner_headers = _register_and_login(client, "oowner8@example.com")
     customer_headers = _register_and_login(client, "ocustomer8@example.com")
     store_id = _create_store(client, owner_headers, "statusupdate")
-    product_id = _create_product(client, owner_headers, store_id)
+    variant_id = _create_variant(client, owner_headers, store_id)
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
         headers=customer_headers,
     ).json()["id"]
 
@@ -159,11 +160,11 @@ def test_invalid_status_rejected(client):
     owner_headers = _register_and_login(client, "oowner9@example.com")
     customer_headers = _register_and_login(client, "ocustomer9@example.com")
     store_id = _create_store(client, owner_headers, "invalidstatus")
-    product_id = _create_product(client, owner_headers, store_id)
+    variant_id = _create_variant(client, owner_headers, store_id)
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"product_id": product_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
         headers=customer_headers,
     ).json()["id"]
 

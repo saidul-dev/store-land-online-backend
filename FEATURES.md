@@ -182,6 +182,24 @@ Zoyeq-এর AI ফিচারগুলো মূলত "content generation" �
 - **Generic `CRUDBase`**: ভবিষ্যতে Product/Order/Vendor ইত্যাদি model যোগ করার সময় বয়লারপ্লেট কমাতে
 - `/api/v1` prefix + CORS middleware চালু করা হয়েছে
 
+### 2026-07-25 — Refresh token + rotation
+মূল ডকুমেন্টে auth-এ শুধু "Email verification, password reset" ছিল, refresh token উল্লেখ ছিল না। Zoyeq-এর `app.zoyeq.com` কুকি ঘেঁটে দেখা গেছে ওরা `accessToken` + `refreshToken` দুটোই ইস্যু করে — সেই gap পূরণ করতে যোগ করা হলো:
+
+- `RefreshToken` model — raw token DB-তে কখনো স্টোর হয় না, SHA-256 hash স্টোর হয়
+- **Rotation**: প্রতি `/api/v1/refresh` কলে পুরোনো token revoke হয়ে নতুন pair ইস্যু হয়; রিভোকড token দ্বিতীয়বার ব্যবহার করলে ৪০১ (replay protection)
+- `POST /api/v1/refresh`, `POST /api/v1/logout` নতুন এন্ডপয়েন্ট
+- JWT access token-এ `jti` claim যোগ হয়েছে (bug fix: আগে একই সেকেন্ডে issue করা দুটো টোকেন byte-identical হয়ে যাচ্ছিল, কারণ payload `{sub, exp}` deterministic ছিল)
+
+### 2026-07-25 — Category, Brand, Product Variant (catalog restructuring)
+মূল ডকুমেন্টের Phase 1 item 3-এ "Product CRUD (variants: size, color, SKU)" ও "Categories, tags, collections" আগে থেকেই ছিল — ওগুলোই এখন বাস্তবায়িত হলো, সাথে **Brand** নতুন যোগ হলো (মূল ডকুমেন্টে ছিল না; tags/collections এখনো বাকি)।
+
+- `Category` — store-scoped, self-referencing `parent_id` (sub-category সাপোর্ট করে)
+- `Brand` — store-scoped, flat
+- `Product` এখন থেকে "parent" — sku/price/stock সরে গিয়ে `ProductVariant`-এ গেছে (breaking change, আগের flat Product model-এ এসব সরাসরি ছিল)
+- `ProductVariant` — actual sellable unit; `attributes` JSON কলামে size/color ইত্যাদি free-form key-value হিসেবে থাকে (store নিজের attribute axis ঠিক করতে পারবে, স্কিমা পরিবর্তন লাগবে না)
+- `OrderItem.product_id` → `OrderItem.variant_id`-এ পরিবর্তন হয়েছে, কারণ price/stock এখন variant-level-এ
+- একটা প্রোডাক্ট একসাথে একাধিক variant নিয়ে create করা যায় (`POST /products/`-এর payload-এ nested `variants` লিস্ট), অথবা পরে আলাদাভাবে variant যোগ/আপডেট/মুছে ফেলা যায়
+
 ---
 
 *Stack note: repo has `python-backend` (FastAPI-style, per `app/api/auth.py`) + `nextjs-frontend`. Auth module already in progress — good starting point for Phase 1. This file lives in `python-backend/FEATURES.md`.*

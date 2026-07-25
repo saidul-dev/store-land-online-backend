@@ -5,17 +5,18 @@ from sqlalchemy.orm import Session
 from app.crud.base import CRUDBase
 from app.models.order import Order, OrderItem
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.schemas.order import OrderItemCreate, OrderStatusUpdate
 
 
-class ProductNotFoundError(Exception):
-    def __init__(self, product_id: int) -> None:
-        self.product_id = product_id
+class VariantNotFoundError(Exception):
+    def __init__(self, variant_id: int) -> None:
+        self.variant_id = variant_id
 
 
 class InsufficientStockError(Exception):
-    def __init__(self, product_name: str, available: int) -> None:
-        self.product_name = product_name
+    def __init__(self, sku: str, available: int) -> None:
+        self.sku = sku
         self.available = available
 
 
@@ -54,25 +55,27 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
         # fine for a single-process demo, but concurrent checkouts on Postgres could
         # oversell stock; add a locking read before this goes to production.
         for item_in in items_in:
-            db_product = (
-                db.query(Product)
+            db_variant = (
+                db.query(ProductVariant)
+                .join(Product, Product.id == ProductVariant.product_id)
                 .filter(
-                    Product.store_id == store_id,
-                    Product.id == item_in.product_id,
+                    ProductVariant.store_id == store_id,
+                    ProductVariant.id == item_in.variant_id,
+                    ProductVariant.is_active.is_(True),
                     Product.is_active.is_(True),
                 )
                 .first()
             )
-            if db_product is None:
-                raise ProductNotFoundError(item_in.product_id)
-            if db_product.stock_quantity < item_in.quantity:
-                raise InsufficientStockError(db_product.name, db_product.stock_quantity)
+            if db_variant is None:
+                raise VariantNotFoundError(item_in.variant_id)
+            if db_variant.stock_quantity < item_in.quantity:
+                raise InsufficientStockError(db_variant.sku, db_variant.stock_quantity)
 
-            db_product.stock_quantity -= item_in.quantity
-            unit_price = db_product.price
+            db_variant.stock_quantity -= item_in.quantity
+            unit_price = db_variant.price
             total += unit_price * item_in.quantity
             order_items.append(
-                OrderItem(product_id=db_product.id, quantity=item_in.quantity, unit_price=unit_price)
+                OrderItem(variant_id=db_variant.id, quantity=item_in.quantity, unit_price=unit_price)
             )
 
         order = Order(store_id=store_id, customer_id=customer_id, total_amount=total, items=order_items)

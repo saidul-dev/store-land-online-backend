@@ -5,7 +5,7 @@ from app.core.permissions import ROLE_PERMISSIONS, Permission
 from app.core.rbac import require_permission
 from app.core.security import get_current_user
 from app.crud.membership import membership as membership_crud
-from app.crud.order import InsufficientStockError, ProductNotFoundError
+from app.crud.order import InsufficientStockError, VariantNotFoundError
 from app.crud.order import order as order_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
@@ -29,14 +29,14 @@ def create_order(
         return order_crud.create_with_items(
             db, store_id=store_id, customer_id=current_user.id, items_in=payload.items
         )
-    except ProductNotFoundError as exc:
+    except VariantNotFoundError as exc:
         raise HTTPException(
-            status_code=404, detail=f"Product {exc.product_id} not found in this store"
+            status_code=404, detail=f"Variant {exc.variant_id} not found in this store"
         ) from exc
     except InsufficientStockError as exc:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient stock for '{exc.product_name}' (available: {exc.available})",
+            detail=f"Insufficient stock for SKU '{exc.sku}' (available: {exc.available})",
         ) from exc
 
 
