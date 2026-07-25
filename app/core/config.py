@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Base domain the platform is served on, e.g. stores live at "<subdomain>.<BASE_DOMAIN>"
     BASE_DOMAIN: str = "yourapp.com"

@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -43,5 +45,22 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"sub": subject, "exp": expire}
+    # jti makes each token unique even when issued for the same subject within the
+    # same second (e.g. login immediately followed by refresh) — same {sub, exp}
+    # would otherwise produce a byte-identical, deterministic JWT.
+    to_encode = {"sub": subject, "exp": expire, "jti": secrets.token_hex(8)}
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def utcnow() -> datetime:
+    """Naive UTC now — refresh tokens store naive-UTC timestamps so expiry
+    comparisons behave identically on SQLite (tests) and Postgres (prod)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
