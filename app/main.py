@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api import posts, auth, comment, store, staff, product, order, category, brand
+from app.api import posts, auth, comment, store, staff, product, order, category, brand, analytics
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -24,6 +24,7 @@ app.include_router(product.router, prefix=API_V1_PREFIX)
 app.include_router(order.router, prefix=API_V1_PREFIX)
 app.include_router(category.router, prefix=API_V1_PREFIX)
 app.include_router(brand.router, prefix=API_V1_PREFIX)
+app.include_router(analytics.router, prefix=API_V1_PREFIX)
 
 @app.get("/")
 def read_root():
