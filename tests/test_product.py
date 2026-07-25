@@ -59,7 +59,27 @@ def test_products_are_publicly_listable(client):
 
     response = client.get(f"/api/v1/stores/{store_id}/products/")
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    body = response.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+
+
+def test_products_list_is_paginated(client):
+    headers = _register_and_login(client, "ppage@example.com")
+    store_id = _create_store(client, headers, "pagedproducts")
+    for i in range(3):
+        _create_product(client, headers, store_id, sku=f"SKU-PAGE-{i}")
+
+    first_page = client.get(f"/api/v1/stores/{store_id}/products/?limit=2&page=1")
+    assert first_page.status_code == 200
+    first_body = first_page.json()
+    assert first_body["total"] == 3
+    assert first_body["page"] == 1
+    assert first_body["limit"] == 2
+    assert len(first_body["items"]) == 2
+
+    second_page = client.get(f"/api/v1/stores/{store_id}/products/?limit=2&page=2")
+    assert len(second_page.json()["items"]) == 1
 
 
 def test_create_product_requires_membership(client):
@@ -186,4 +206,4 @@ def test_product_with_category_and_brand(client):
     assert body["brand_id"] == brand_id
 
     filtered = client.get(f"/api/v1/stores/{store_id}/products/?category_id={category_id}")
-    assert len(filtered.json()) == 1
+    assert len(filtered.json()["items"]) == 1

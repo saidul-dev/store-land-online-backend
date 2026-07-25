@@ -29,6 +29,21 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
             query = query.filter(Product.brand_id == brand_id)
         return query.offset(skip).limit(limit).all()
 
+    def count_by_store(
+        self,
+        db: Session,
+        store_id: int,
+        *,
+        category_id: int | None = None,
+        brand_id: int | None = None,
+    ) -> int:
+        query = db.query(Product).filter(Product.store_id == store_id)
+        if category_id is not None:
+            query = query.filter(Product.category_id == category_id)
+        if brand_id is not None:
+            query = query.filter(Product.brand_id == brand_id)
+        return query.count()
+
     def get_by_store_and_id(self, db: Session, store_id: int, product_id: int) -> Product | None:
         return db.query(Product).filter(Product.store_id == store_id, Product.id == product_id).first()
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.permissions import Permission
@@ -9,6 +9,7 @@ from app.crud.product import variant as variant_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
 from app.models.store_membership import StoreMembership
+from app.schemas.common import Page
 from app.schemas.product import (
     ProductCreate,
     ProductRead,
@@ -21,18 +22,21 @@ from app.schemas.product import (
 router = APIRouter(prefix="/stores/{store_id}/products", tags=["products"])
 
 
-@router.get("/", response_model=list[ProductRead])
+@router.get("/", response_model=Page[ProductRead])
 def list_products(
     store_id: int,
     category_id: int | None = None,
     brand_id: int | None = None,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     if store_crud.get(db, store_id) is None:
         raise HTTPException(status_code=404, detail="Store not found")
-    return product_crud.get_by_store(db, store_id, category_id=category_id, brand_id=brand_id, skip=skip, limit=limit)
+    skip = (page - 1) * limit
+    items = product_crud.get_by_store(db, store_id, category_id=category_id, brand_id=brand_id, skip=skip, limit=limit)
+    total = product_crud.count_by_store(db, store_id, category_id=category_id, brand_id=brand_id)
+    return Page(items=items, total=total, page=page, limit=limit)
 
 
 @router.get("/{product_id}", response_model=ProductRead)

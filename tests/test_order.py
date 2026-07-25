@@ -37,7 +37,7 @@ def test_checkout_creates_order_and_decrements_stock(client):
     assert body["total_amount"] == "20.00"
     assert body["status"] == "pending"
 
-    product_id = client.get(f"/api/v1/stores/{store_id}/products/").json()[0]["id"]
+    product_id = client.get(f"/api/v1/stores/{store_id}/products/").json()["items"][0]["id"]
     product = client.get(f"/api/v1/stores/{store_id}/products/{product_id}").json()
     assert product["variants"][0]["stock_quantity"] == 3
 
@@ -84,6 +84,33 @@ def test_list_my_orders(client):
     response = client.get(f"/api/v1/stores/{store_id}/orders/mine", headers=customer_headers)
     assert response.status_code == 200
     assert len(response.json()) == 1
+
+
+def test_orders_list_is_paginated_newest_first(client):
+    owner_headers = _register_and_login(client, "opage@example.com")
+    customer_headers = _register_and_login(client, "ocpage@example.com")
+    store_id = _create_store(client, owner_headers, "pagedorders")
+    variant_id = _create_variant(client, owner_headers, store_id, stock=10)
+
+    order_ids = []
+    for _ in range(3):
+        response = client.post(
+            f"/api/v1/stores/{store_id}/orders/",
+            json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+            headers=customer_headers,
+        )
+        order_ids.append(response.json()["id"])
+
+    first_page = client.get(f"/api/v1/stores/{store_id}/orders/?limit=2&page=1", headers=owner_headers)
+    assert first_page.status_code == 200
+    body = first_page.json()
+    assert body["total"] == 3
+    assert body["page"] == 1
+    assert body["limit"] == 2
+    assert [item["id"] for item in body["items"]] == list(reversed(order_ids))[:2]
+
+    second_page = client.get(f"/api/v1/stores/{store_id}/orders/?limit=2&page=2", headers=owner_headers)
+    assert [item["id"] for item in second_page.json()["items"]] == [order_ids[0]]
 
 
 def test_non_member_cannot_list_all_orders(client):

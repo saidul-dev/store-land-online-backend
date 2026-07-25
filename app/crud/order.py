@@ -25,10 +25,16 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
         return (
             db.query(Order)
             .filter(Order.store_id == store_id)
+            # id as a tiebreaker: created_at alone isn't unique enough — orders
+            # placed in quick succession (e.g. in tests) can share a timestamp.
+            .order_by(Order.created_at.desc(), Order.id.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+
+    def count_by_store(self, db: Session, store_id: int) -> int:
+        return db.query(Order).filter(Order.store_id == store_id).count()
 
     def get_by_store_and_id(self, db: Session, store_id: int, order_id: int) -> Order | None:
         return db.query(Order).filter(Order.store_id == store_id, Order.id == order_id).first()

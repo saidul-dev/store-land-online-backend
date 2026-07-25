@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.permissions import ROLE_PERMISSIONS, Permission
@@ -11,6 +11,7 @@ from app.crud.store import store as store_crud
 from app.db.session import get_db
 from app.models.store_membership import StoreMembership
 from app.models.user import User
+from app.schemas.common import Page
 from app.schemas.order import OrderCreate, OrderRead, OrderStatusUpdate
 
 router = APIRouter(prefix="/stores/{store_id}/orders", tags=["orders"])
@@ -49,13 +50,18 @@ def list_my_orders(
     return order_crud.get_by_customer(db, store_id, current_user.id)
 
 
-@router.get("/", response_model=list[OrderRead])
+@router.get("/", response_model=Page[OrderRead])
 def list_orders(
     store_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     _membership: StoreMembership = Depends(require_permission(Permission.ORDERS_VIEW)),
 ):
-    return order_crud.get_by_store(db, store_id)
+    skip = (page - 1) * limit
+    items = order_crud.get_by_store(db, store_id, skip=skip, limit=limit)
+    total = order_crud.count_by_store(db, store_id)
+    return Page(items=items, total=total, page=page, limit=limit)
 
 
 @router.get("/{order_id}", response_model=OrderRead)
