@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserRead, Token
 from app.crud import user as user_crud
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, get_current_user
+from app.models.user import User
 
 router = APIRouter(tags=["auth"])
 
@@ -24,3 +25,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     token = create_access_token(subject=db_user.email)
     return Token(access_token=token)
+
+
+@router.get("/me", response_model=UserRead)
+def read_me(current_user: User = Depends(get_current_user)):
+    return current_user
