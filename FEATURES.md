@@ -11,6 +11,7 @@ Reference: [zoyeq.com](https://www.zoyeq.com/) — AI-powered, no-code, multi-ve
 - Email/password + Google/Facebook social login
 - Email verification, password reset
 - Role-based access: Super Admin (platform owner), Store Owner, Staff, Customer
+  - Implemented as **per-store Role + Permission bundles** (not a flat global role), see [Implementation Log](#implementation-log--additions-beyond-original-scope) below — Zoyeq only documents coarse Admin/Vendor/Customer roles publicly, no staff-level granular permissions
 - 2FA (two-factor authentication)
 
 ### 2. Store Builder (No-code)
@@ -164,6 +165,22 @@ Zoyeq-এর AI ফিচারগুলো মূলত "content generation" �
 3. AI features (content generation, insights, chatbot) — এখানেই "AI-driven" পরিচয় প্রতিষ্ঠিত হবে, তাই এটা core differentiator হিসেবে আগেভাগে prototype করা যেতে পারে যদি marketing এ AI-first angle emphasize করতে চাই
 4. Billing/subscription for the SaaS + platform admin + scale/security items
 5. Phase 5 (agentic co-pilot, agentic marketing, dynamic pricing, no-code AI builder) — এগুলো Zoyeq-এর নেই, তাই competitive moat হিসেবে Phase 3-এর basic AI স্থিতিশীল হওয়ার পরপরই ১-২টা (যেমন AI Store Co-pilot বা Agentic Marketing) prioritize করা যেতে পারে বাকিদের থেকে আলাদা দেখানোর জন্য
+
+---
+
+## Implementation Log — Additions Beyond Original Scope
+
+কোডে যদি এই ডকুমেন্টে না-থাকা কোনো ফিচার/সিস্টেম যোগ হয়, সেটা এখানে লগ করা হবে যাতে ডকুমেন্ট আর কোড sync-এ থাকে।
+
+### 2026-07-25 — Multi-tenancy foundation + granular Role/Permission system
+মূল ডকুমেন্টে শুধু "Role-based access" (flat: Super Admin/Store Owner/Staff/Customer) লেখা ছিল। বাস্তবায়নের সময় এটাকে আরও এগিয়ে নেওয়া হয়েছে, কারণ Zoyeq রিসার্চে দেখা গেছে তাদের publicly documented role শুধু Admin/Vendor/Customer — কোনো staff-level granular permission নেই। তাই এটা একটা differentiator হিসেবে যোগ করা হলো:
+
+- **Multi-tenancy**: `Store` model (subdomain, custom_domain, domain_verified) + Host-header-based tenant resolution dependency, `/api/v1/stores/resolve` endpoint (frontend middleware এটা দিয়ে বুঝবে কোন হোস্ট কোন store)
+- **Per-store Role + Permission bundles** (global flat role না): `Permission` enum (`products.edit`, `orders.manage`, `staff.manage`, `billing.manage` ইত্যাদি) + `ROLE_PERMISSIONS` ম্যাপিং (`owner`/`manager`/`staff`/`support`) — নতুন role বা permission যোগ করতে শুধু `app/core/permissions.py` এডিট করলেই হয়, কোনো endpoint পরিবর্তন লাগে না
+- **`StoreMembership`**: একই user ভিন্ন store-এ ভিন্ন role রাখতে পারে (multi-vendor-এর জন্য দরকার); store তৈরি হলে creator অটোম্যাটিক `owner` হিসেবে member হয়ে যায়
+- Staff management API (`/api/v1/stores/{store_id}/staff`): list/add/update-role/remove, owner role পরিবর্তন বা মুছে ফেলা যায় না
+- **Generic `CRUDBase`**: ভবিষ্যতে Product/Order/Vendor ইত্যাদি model যোগ করার সময় বয়লারপ্লেট কমাতে
+- `/api/v1` prefix + CORS middleware চালু করা হয়েছে
 
 ---
 
