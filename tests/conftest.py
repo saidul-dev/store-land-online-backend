@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.db.base import Base
 from app.db.session import get_db
+from app.db.seed import seed_default_plans
 from app import models  # noqa: F401 — registers models with Base.metadata
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -23,6 +24,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def db_session():
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
+    seed_default_plans(session)
     try:
         yield session
     finally:

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.permissions import Permission
 from app.core.rbac import require_permission
+from app.core.subscription import check_staff_limit
 from app.crud import user as user_crud
 from app.crud.membership import membership as membership_crud
 from app.db.session import get_db
@@ -33,6 +34,7 @@ def add_staff(
         raise HTTPException(status_code=404, detail="No registered user with that email")
     if membership_crud.get_by_store_and_user(db, store_id, target_user.id):
         raise HTTPException(status_code=400, detail="User is already a member of this store")
+    check_staff_limit(db, store_id)
     return membership_crud.add_member(db, store_id=store_id, user_id=target_user.id, role=payload.role)
 
 

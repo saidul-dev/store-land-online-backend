@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.permissions import ROLE_PERMISSIONS, Permission
 from app.core.security import get_current_user
+from app.core.subscription import check_subscription_active
 from app.crud.membership import membership as membership_crud
 from app.db.session import get_db
 from app.models.store_membership import StoreMembership
@@ -26,9 +27,16 @@ def get_current_membership(
 
 
 def require_permission(permission: Permission):
-    def checker(membership: StoreMembership = Depends(get_current_membership)) -> StoreMembership:
+    def checker(
+        membership: StoreMembership = Depends(get_current_membership),
+        db: Session = Depends(get_db),
+    ) -> StoreMembership:
         if permission not in ROLE_PERMISSIONS.get(membership.role, set()):
             raise HTTPException(status_code=403, detail="Not enough permissions")
+        # "*.view" permissions stay readable even with a lapsed subscription —
+        # only mutating permissions (*.edit / *.manage) are gated.
+        if not permission.value.endswith(".view"):
+            check_subscription_active(db, membership.store_id)
         return membership
 
     return checker

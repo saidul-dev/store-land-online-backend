@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.permissions import Permission
 from app.core.rbac import require_permission
+from app.core.subscription import check_product_limit
 from app.crud.product import DuplicateSKUError
 from app.crud.product import product as product_crud
 from app.crud.product import variant as variant_crud
@@ -54,6 +55,7 @@ def create_product(
     db: Session = Depends(get_db),
     _membership: StoreMembership = Depends(require_permission(Permission.PRODUCTS_EDIT)),
 ):
+    check_product_limit(db, store_id)
     try:
         return product_crud.create_with_variants(db, store_id=store_id, payload=payload)
     except DuplicateSKUError as exc:

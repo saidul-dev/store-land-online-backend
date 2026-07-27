@@ -9,3 +9,5 @@ from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.order import Order, OrderItem
 from app.models.refresh_token import RefreshToken
+from app.models.plan import Plan
+from app.models.subscription import Subscription
