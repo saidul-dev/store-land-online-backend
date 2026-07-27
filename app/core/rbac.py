@@ -26,6 +26,12 @@ def get_current_membership(
     return membership
 
 
+def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return current_user
+
+
 def require_permission(permission: Permission):
     def checker(
         membership: StoreMembership = Depends(get_current_membership),
