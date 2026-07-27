@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.permissions import Permission
+from app.core.rbac import require_permission
 from app.core.security import get_current_user
 from app.core.tenant import get_store_from_host
 from app.crud.membership import membership as membership_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
 from app.models.store import Store
+from app.models.store_membership import StoreMembership
 from app.models.user import User
-from app.schemas.store import StoreCreate, StoreRead
+from app.schemas.store import StoreCreate, StoreRead, StoreSettingsUpdate
 
 router = APIRouter(prefix="/stores", tags=["stores"])
 
@@ -42,3 +45,16 @@ def resolve_store(store: Store = Depends(get_store_from_host)):
     maps to a live store before rendering its storefront.
     """
     return store
+
+
+@router.patch("/{store_id}/settings", response_model=StoreRead)
+def update_store_settings(
+    store_id: int,
+    payload: StoreSettingsUpdate,
+    db: Session = Depends(get_db),
+    _membership: StoreMembership = Depends(require_permission(Permission.STORE_SETTINGS_EDIT)),
+):
+    db_store = store_crud.get(db, store_id)
+    if db_store is None:
+        raise HTTPException(status_code=404, detail="Store not found")
+    return store_crud.update(db, db_store, payload)

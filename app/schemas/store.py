@@ -35,8 +35,25 @@ class StoreRead(BaseModel):
     subdomain: str
     custom_domain: str | None
     domain_verified: bool
+    currency: str
     owner_id: int
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# Kept in sync by hand with CURRENCIES in the frontend's settings-form.tsx.
+ALLOWED_CURRENCIES = {"USD", "BDT", "EUR", "GBP", "INR"}
+
+
+class StoreSettingsUpdate(BaseModel):
+    currency: str
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, value: str) -> str:
+        value = value.strip().upper()
+        if value not in ALLOWED_CURRENCIES:
+            raise ValueError(f"Currency must be one of: {', '.join(sorted(ALLOWED_CURRENCIES))}")
+        return value
