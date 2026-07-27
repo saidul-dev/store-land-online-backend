@@ -15,3 +15,22 @@ def create_user(db: Session, user: UserCreate) -> User:
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def update_profile(
+    db: Session,
+    user: User,
+    *,
+    name: str | None,
+    email: str | None,
+    new_password: str | None,
+) -> User:
+    if name is not None:
+        user.name = name
+    if email is not None:
+        user.email = email
+    if new_password is not None:
+        user.hashed_password = hash_password(new_password)
+    db.commit()
+    db.refresh(user)
+    return user

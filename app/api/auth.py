@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.user import RefreshRequest, UserCreate, UserRead, Token
+from app.schemas.user import ProfileUpdate, ProfileUpdateResponse, RefreshRequest, UserCreate, UserRead, Token
 from app.crud import user as user_crud
 from app.crud.refresh_token import refresh_token as refresh_token_crud
 from app.core.security import (
@@ -61,3 +61,29 @@ def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=ProfileUpdateResponse)
+def update_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    changing_sensitive = payload.email is not None or payload.new_password is not None
+    if changing_sensitive:
+        if not payload.current_password or not verify_password(
+            payload.current_password, current_user.hashed_password
+        ):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if payload.email is not None and payload.email != current_user.email:
+        if user_crud.get_user_by_email(db, payload.email):
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+    updated_user = user_crud.update_profile(
+        db, current_user, name=payload.name, email=payload.email, new_password=payload.new_password
+    )
+    # The access token's subject is the email — reissue so an email change
+    # doesn't invalidate the caller's own session mid-request.
+    tokens = _issue_token_pair(db, updated_user)
+    return ProfileUpdateResponse(user=updated_user, tokens=tokens)

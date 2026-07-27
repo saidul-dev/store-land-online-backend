@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins, or "*" for all
     BACKEND_CORS_ORIGINS: str = "*"
 
+    # Read by scripts/seed_superadmin.py — unset means "don't seed".
+    SUPERADMIN_EMAIL: str | None = None
+    SUPERADMIN_PASSWORD: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @property
