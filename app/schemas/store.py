@@ -36,6 +36,15 @@ class StoreRead(BaseModel):
     custom_domain: str | None
     domain_verified: bool
     currency: str
+    tag_line: str | None
+    email: str | None
+    phone_country_code: str | None
+    phone_number: str | None
+    country: str | None
+    state: str | None
+    city: str | None
+    zip_code: str | None
+    address: str | None
     owner_id: int
     created_at: datetime
 
@@ -43,17 +52,36 @@ class StoreRead(BaseModel):
         from_attributes = True
 
 
-# Kept in sync by hand with CURRENCIES in the frontend's settings-form.tsx.
+# Kept in sync by hand with CURRENCIES in the frontend's lib/format.ts.
 ALLOWED_CURRENCIES = {"USD", "BDT", "EUR", "GBP", "INR"}
 
 
 class StoreSettingsUpdate(BaseModel):
-    currency: str
+    name: str | None = None
+    currency: str | None = None
+    tag_line: str | None = None
+    email: str | None = None
+    phone_country_code: str | None = None
+    phone_number: str | None = None
+    country: str | None = None
+    state: str | None = None
+    city: str | None = None
+    zip_code: str | None = None
+    address: str | None = None
 
     @field_validator("currency")
     @classmethod
-    def validate_currency(cls, value: str) -> str:
+    def validate_currency(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
         value = value.strip().upper()
         if value not in ALLOWED_CURRENCIES:
             raise ValueError(f"Currency must be one of: {', '.join(sorted(ALLOWED_CURRENCIES))}")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("Store name cannot be empty")
         return value
