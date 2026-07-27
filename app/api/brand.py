@@ -6,6 +6,7 @@ from app.core.rbac import require_permission
 from app.crud.brand import brand as brand_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
+from app.models.product import Product
 from app.models.store_membership import StoreMembership
 from app.schemas.brand import BrandCreate, BrandRead, BrandUpdate
 
@@ -55,4 +56,11 @@ def delete_brand(
     db_brand = brand_crud.get_by_store_and_id(db, store_id, brand_id)
     if db_brand is None:
         raise HTTPException(status_code=404, detail="Brand not found")
+
+    product_count = db.query(Product).filter(Product.brand_id == brand_id).count()
+    if product_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete: {product_count} product(s) still use this brand. Reassign or delete them first.",
+        )
     brand_crud.remove(db, db_brand)

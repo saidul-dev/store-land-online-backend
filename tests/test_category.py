@@ -109,6 +109,50 @@ def test_update_and_delete_category(client):
     assert delete_response.status_code == 204
 
 
+def test_cannot_delete_category_with_products(client):
+    headers = _register_and_login(client, "cowner8@example.com")
+    store_id = _create_store(client, headers, "catwithproduct")
+    category_id = client.post(
+        f"/api/v1/stores/{store_id}/categories/",
+        json={"name": "Electronics", "slug": "electronics"},
+        headers=headers,
+    ).json()["id"]
+    client.post(
+        f"/api/v1/stores/{store_id}/products/",
+        json={
+            "name": "Widget",
+            "category_id": category_id,
+            "variants": [{"sku": "CATGUARD-1", "price": "5.00", "stock_quantity": 1}],
+        },
+        headers=headers,
+    )
+
+    response = client.delete(f"/api/v1/stores/{store_id}/categories/{category_id}", headers=headers)
+    assert response.status_code == 400
+
+    # the category should still be listable — delete did not go through
+    listed = client.get(f"/api/v1/stores/{store_id}/categories/")
+    assert len(listed.json()) == 1
+
+
+def test_cannot_delete_category_with_subcategories(client):
+    headers = _register_and_login(client, "cowner9@example.com")
+    store_id = _create_store(client, headers, "catwithchild")
+    parent_id = client.post(
+        f"/api/v1/stores/{store_id}/categories/",
+        json={"name": "Electronics", "slug": "electronics"},
+        headers=headers,
+    ).json()["id"]
+    client.post(
+        f"/api/v1/stores/{store_id}/categories/",
+        json={"name": "Mobiles", "slug": "mobiles", "parent_id": parent_id},
+        headers=headers,
+    )
+
+    response = client.delete(f"/api/v1/stores/{store_id}/categories/{parent_id}", headers=headers)
+    assert response.status_code == 400
+
+
 def test_create_category_requires_permission(client):
     owner_headers = _register_and_login(client, "cowner7@example.com")
     outsider_headers = _register_and_login(client, "coutsider@example.com")

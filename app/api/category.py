@@ -6,6 +6,8 @@ from app.core.rbac import require_permission
 from app.crud.category import category as category_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
+from app.models.category import Category
+from app.models.product import Product
 from app.models.store_membership import StoreMembership
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 
@@ -59,4 +61,17 @@ def delete_category(
     db_category = category_crud.get_by_store_and_id(db, store_id, category_id)
     if db_category is None:
         raise HTTPException(status_code=404, detail="Category not found")
+
+    product_count = db.query(Product).filter(Product.category_id == category_id).count()
+    if product_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete: {product_count} product(s) still use this category. Reassign or delete them first.",
+        )
+    child_count = db.query(Category).filter(Category.parent_id == category_id).count()
+    if child_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete: {child_count} subcategory(ies) still have this as their parent.",
+        )
     category_crud.remove(db, db_category)

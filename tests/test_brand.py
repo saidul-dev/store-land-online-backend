@@ -61,6 +61,29 @@ def test_update_and_delete_brand(client):
     assert delete_response.status_code == 204
 
 
+def test_cannot_delete_brand_with_products(client):
+    headers = _register_and_login(client, "bowner6@example.com")
+    store_id = _create_store(client, headers, "brandwithproduct")
+    brand_id = client.post(
+        f"/api/v1/stores/{store_id}/brands/", json={"name": "Acme", "slug": "acme"}, headers=headers
+    ).json()["id"]
+    client.post(
+        f"/api/v1/stores/{store_id}/products/",
+        json={
+            "name": "Widget",
+            "brand_id": brand_id,
+            "variants": [{"sku": "BRANDGUARD-1", "price": "5.00", "stock_quantity": 1}],
+        },
+        headers=headers,
+    )
+
+    response = client.delete(f"/api/v1/stores/{store_id}/brands/{brand_id}", headers=headers)
+    assert response.status_code == 400
+
+    listed = client.get(f"/api/v1/stores/{store_id}/brands/")
+    assert len(listed.json()) == 1
+
+
 def test_create_brand_requires_permission(client):
     owner_headers = _register_and_login(client, "bowner5@example.com")
     outsider_headers = _register_and_login(client, "boutsider@example.com")
