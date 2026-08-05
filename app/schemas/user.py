@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     id: int
     name: str | None
+    phone: str | None
     email: EmailStr
     is_super_admin: bool
 
@@ -28,6 +29,7 @@ class RefreshRequest(BaseModel):
 
 class ProfileUpdate(BaseModel):
     name: str | None = None
+    phone: str | None = None
     email: EmailStr | None = None
     current_password: str | None = None
     new_password: str | None = None

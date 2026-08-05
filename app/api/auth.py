@@ -81,7 +81,12 @@ def update_profile(
             raise HTTPException(status_code=400, detail="Email already registered")
 
     updated_user = user_crud.update_profile(
-        db, current_user, name=payload.name, email=payload.email, new_password=payload.new_password
+        db,
+        current_user,
+        name=payload.name,
+        phone=payload.phone,
+        email=payload.email,
+        new_password=payload.new_password,
     )
     # The access token's subject is the email — reissue so an email change
     # doesn't invalidate the caller's own session mid-request.

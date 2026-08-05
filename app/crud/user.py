@@ -22,11 +22,14 @@ def update_profile(
     user: User,
     *,
     name: str | None,
+    phone: str | None,
     email: str | None,
     new_password: str | None,
 ) -> User:
     if name is not None:
         user.name = name
+    if phone is not None:
+        user.phone = phone
     if email is not None:
         user.email = email
     if new_password is not None:
