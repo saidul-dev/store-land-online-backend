@@ -13,6 +13,7 @@ class Category(Base):
     parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     name = Column(String(255), nullable=False)
     slug = Column(String(255), nullable=False)
+    image_path = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     store = relationship("Store")

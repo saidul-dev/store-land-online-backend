@@ -33,6 +33,17 @@ class ProductVariantRead(BaseModel):
         from_attributes = True
 
 
+class ProductImageRead(BaseModel):
+    id: int
+    product_id: int
+    file_path: str
+    sort_order: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ProductCreate(BaseModel):
     name: str
     description: str | None = None
@@ -58,6 +69,7 @@ class ProductRead(BaseModel):
     description: str | None
     is_active: bool
     variants: list[ProductVariantRead]
+    images: list[ProductImageRead]
     created_at: datetime
     updated_at: datetime
 

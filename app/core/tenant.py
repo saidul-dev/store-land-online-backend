@@ -20,13 +20,17 @@ def extract_subdomain(host: str) -> str | None:
     return None
 
 
-def get_store_from_host(request: Request, db: Session = Depends(get_db)) -> Store:
+def get_store_from_host(request: Request, host: str | None = None, db: Session = Depends(get_db)) -> Store:
     """Resolve the Store for the current request's Host header.
 
     Supports both "<subdomain>.<BASE_DOMAIN>" hosts and verified custom domains.
     Raises 404 if the host does not map to any store.
+
+    Accepts an optional `host` query param as a fallback for callers that can't
+    set a literal Host header on their outgoing request (e.g. `fetch()` treats
+    "Host" as a forbidden header) — the frontend's tenant-routing proxy uses this.
     """
-    host = request.headers.get("host", "")
+    host = host or request.headers.get("host", "")
     bare_host = host.split(":")[0].lower()
 
     subdomain = extract_subdomain(host)

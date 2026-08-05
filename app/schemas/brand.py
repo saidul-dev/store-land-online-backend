@@ -30,6 +30,7 @@ class BrandRead(BaseModel):
     store_id: int
     name: str
     slug: str
+    image_path: str | None
     created_at: datetime
 
     class Config:

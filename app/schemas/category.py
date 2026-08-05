@@ -41,6 +41,7 @@ class CategoryRead(BaseModel):
     parent_id: int | None
     name: str
     slug: str
+    image_path: str | None
     created_at: datetime
 
     class Config:

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.permissions import Permission
 from app.core.rbac import require_permission
+from app.core.uploads import delete_upload, save_upload
 from app.crud.category import category as category_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
@@ -75,3 +76,22 @@ def delete_category(
             detail=f"Cannot delete: {child_count} subcategory(ies) still have this as their parent.",
         )
     category_crud.remove(db, db_category)
+
+
+@router.put("/{category_id}/image", response_model=CategoryRead)
+def upload_category_image(
+    store_id: int,
+    category_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _membership: StoreMembership = Depends(require_permission(Permission.PRODUCTS_EDIT)),
+):
+    db_category = category_crud.get_by_store_and_id(db, store_id, category_id)
+    if db_category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    if db_category.image_path:
+        delete_upload(db_category.image_path)
+    db_category.image_path = save_upload(file, store_id=store_id, category="categories")
+    db.commit()
+    db.refresh(db_category)
+    return db_category

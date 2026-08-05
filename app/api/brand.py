@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.permissions import Permission
 from app.core.rbac import require_permission
+from app.core.uploads import delete_upload, save_upload
 from app.crud.brand import brand as brand_crud
 from app.crud.store import store as store_crud
 from app.db.session import get_db
@@ -64,3 +65,22 @@ def delete_brand(
             detail=f"Cannot delete: {product_count} product(s) still use this brand. Reassign or delete them first.",
         )
     brand_crud.remove(db, db_brand)
+
+
+@router.put("/{brand_id}/image", response_model=BrandRead)
+def upload_brand_image(
+    store_id: int,
+    brand_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _membership: StoreMembership = Depends(require_permission(Permission.PRODUCTS_EDIT)),
+):
+    db_brand = brand_crud.get_by_store_and_id(db, store_id, brand_id)
+    if db_brand is None:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    if db_brand.image_path:
+        delete_upload(db_brand.image_path)
+    db_brand.image_path = save_upload(file, store_id=store_id, category="brands")
+    db.commit()
+    db.refresh(db_brand)
+    return db_brand

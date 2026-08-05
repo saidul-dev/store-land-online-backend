@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
 from app.models.product import Product
+from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.schemas.product import ProductCreate, ProductUpdate, ProductVariantCreate, ProductVariantUpdate
 
@@ -19,6 +20,7 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         *,
         category_id: int | None = None,
         brand_id: int | None = None,
+        is_active: bool | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Product]:
@@ -27,6 +29,8 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
             query = query.filter(Product.category_id == category_id)
         if brand_id is not None:
             query = query.filter(Product.brand_id == brand_id)
+        if is_active is not None:
+            query = query.filter(Product.is_active == is_active)
         return query.offset(skip).limit(limit).all()
 
     def count_by_store(
@@ -36,12 +40,15 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         *,
         category_id: int | None = None,
         brand_id: int | None = None,
+        is_active: bool | None = None,
     ) -> int:
         query = db.query(Product).filter(Product.store_id == store_id)
         if category_id is not None:
             query = query.filter(Product.category_id == category_id)
         if brand_id is not None:
             query = query.filter(Product.brand_id == brand_id)
+        if is_active is not None:
+            query = query.filter(Product.is_active == is_active)
         return query.count()
 
     def get_by_store_and_id(self, db: Session, store_id: int, product_id: int) -> Product | None:
@@ -106,6 +113,29 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
             )
             .first()
         )
+
+    def add_image(self, db: Session, *, store_id: int, product_id: int, file_path: str) -> ProductImage:
+        next_order = db.query(ProductImage).filter(ProductImage.product_id == product_id).count()
+        db_image = ProductImage(store_id=store_id, product_id=product_id, file_path=file_path, sort_order=next_order)
+        db.add(db_image)
+        db.commit()
+        db.refresh(db_image)
+        return db_image
+
+    def get_image(self, db: Session, store_id: int, product_id: int, image_id: int) -> ProductImage | None:
+        return (
+            db.query(ProductImage)
+            .filter(
+                ProductImage.store_id == store_id,
+                ProductImage.product_id == product_id,
+                ProductImage.id == image_id,
+            )
+            .first()
+        )
+
+    def remove_image(self, db: Session, image: ProductImage) -> None:
+        db.delete(image)
+        db.commit()
 
 
 product = CRUDProduct(Product)
