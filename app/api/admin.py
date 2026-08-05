@@ -11,7 +11,8 @@ from app.db.session import get_db
 from app.models.store import Store
 from app.models.user import User
 from app.schemas.admin import AdminMembershipRead, AdminStoreRead, UpdateStoreSubscription
-from app.schemas.plan import PlanCreate, PlanRead
+from app.schemas.membership import MembershipRoleUpdate
+from app.schemas.plan import PlanCreate, PlanRead, PlanUpdate
 from app.schemas.site_content import (
     SiteContentRead,
     SiteContentUpdate,
@@ -69,6 +70,46 @@ def list_all_staff(
     ]
 
 
+@router.patch("/staff/{membership_id}", response_model=AdminMembershipRead)
+def update_staff_role(
+    membership_id: int,
+    payload: MembershipRoleUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    target = membership_crud.get(db, membership_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    if target.role == "owner":
+        raise HTTPException(status_code=400, detail="Cannot change the store owner's role")
+    updated = membership_crud.update(db, target, payload)
+    return AdminMembershipRead(
+        id=updated.id,
+        store_id=updated.store_id,
+        store_name=updated.store.name,
+        store_subdomain=updated.store.subdomain,
+        user_id=updated.user_id,
+        user_email=updated.user.email,
+        user_name=updated.user.name,
+        role=updated.role,
+        created_at=updated.created_at,
+    )
+
+
+@router.delete("/staff/{membership_id}", status_code=204)
+def remove_staff(
+    membership_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    target = membership_crud.get(db, membership_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    if target.role == "owner":
+        raise HTTPException(status_code=400, detail="Cannot remove the store owner")
+    membership_crud.remove(db, target)
+
+
 @router.get("/plans", response_model=list[PlanRead])
 def list_all_plans(
     db: Session = Depends(get_db),
@@ -86,6 +127,21 @@ def create_plan(
     if plan_crud.get_by_slug(db, payload.slug):
         raise HTTPException(status_code=400, detail="A plan with this slug already exists")
     return plan_crud.create(db, payload)
+
+
+@router.patch("/plans/{plan_id}", response_model=PlanRead)
+def update_plan(
+    plan_id: int,
+    payload: PlanUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    target = plan_crud.get(db, plan_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    if payload.slug and payload.slug != target.slug and plan_crud.get_by_slug(db, payload.slug):
+        raise HTTPException(status_code=400, detail="A plan with this slug already exists")
+    return plan_crud.update(db, target, payload)
 
 
 @router.get("/site-content/hero", response_model=SiteContentRead)

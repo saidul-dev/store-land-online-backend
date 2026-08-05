@@ -14,6 +14,17 @@ class PlanCreate(BaseModel):
     is_active: bool = True
 
 
+class PlanUpdate(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+    price: Decimal | None = None
+    billing_cycle: str | None = None
+    max_products: int | None = None
+    max_staff: int | None = None
+    custom_domain_allowed: bool | None = None
+    is_active: bool | None = None
+
+
 class PlanRead(BaseModel):
     id: int
     name: str
