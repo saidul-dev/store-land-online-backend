@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.store import Store
 from app.models.user import User
 from app.schemas.admin import AdminStoreRead, UpdateStoreSubscription
-from app.schemas.plan import PlanRead
+from app.schemas.plan import PlanCreate, PlanRead
 from app.schemas.subscription import SubscriptionRead
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -43,6 +43,17 @@ def list_all_plans(
     _admin: User = Depends(require_super_admin),
 ):
     return plan_crud.get_multi(db, limit=1000)
+
+
+@router.post("/plans", response_model=PlanRead, status_code=201)
+def create_plan(
+    payload: PlanCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    if plan_crud.get_by_slug(db, payload.slug):
+        raise HTTPException(status_code=400, detail="A plan with this slug already exists")
+    return plan_crud.create(db, payload)
 
 
 @router.patch("/stores/{store_id}/subscription", response_model=SubscriptionRead)
