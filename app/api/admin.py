@@ -12,12 +12,24 @@ from app.crud.plan import plan as plan_crud
 from app.crud.product import product as product_crud
 from app.crud.site_content import site_content as site_content_crud
 from app.crud.site_feature import site_feature as site_feature_crud
+from app.crud.store import store as store_crud
 from app.crud.subscription import subscription as subscription_crud
+from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.order import Order
+from app.models.plan import Plan
+from app.models.product import Product
 from app.models.store import Store
+from app.models.store_membership import StoreMembership
 from app.models.user import User
-from app.schemas.admin import AdminMembershipRead, AdminStoreRead, AdminStoreUsage, UpdateStoreSubscription
+from app.schemas.admin import (
+    AdminMembershipRead,
+    AdminMetrics,
+    AdminStoreRead,
+    AdminStoreUsage,
+    AdminUserUpdate,
+    UpdateStoreSubscription,
+)
 from app.schemas.membership import MembershipRoleUpdate
 from app.schemas.plan import PlanCreate, PlanRead, PlanUpdate
 from app.schemas.site_content import (
@@ -27,7 +39,9 @@ from app.schemas.site_content import (
     SiteFeatureRead,
     SiteFeatureUpdate,
 )
+from app.schemas.store import StoreRead, StoreSettingsUpdate
 from app.schemas.subscription import SubscriptionRead
+from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -45,32 +59,63 @@ def _usage_tier(*, products: int, orders: int, staff: int) -> str:
     return "light"
 
 
+def _store_usage_counts(db: Session, store_id: int) -> tuple[int, int, int]:
+    """Returns (products, orders, staff) for one store."""
+    return (
+        product_crud.count_by_store(db, store_id),
+        order_crud.count_by_store(db, store_id),
+        len(membership_crud.get_by_store(db, store_id)),
+    )
+
+
+@router.get("/metrics", response_model=AdminMetrics)
+def get_metrics(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    stores = db.query(Store).all()
+    heavy = 0
+    for s in stores:
+        products, orders, staff = _store_usage_counts(db, s.id)
+        if _usage_tier(products=products, orders=orders, staff=staff) == "heavy":
+            heavy += 1
+
+    return AdminMetrics(
+        total_stores=len(stores),
+        total_staff=db.query(StoreMembership).count(),
+        total_plans=db.query(Plan).count(),
+        total_products=db.query(Product).count(),
+        total_orders=db.query(Order).count(),
+        heavy_usage_stores=heavy,
+        light_usage_stores=len(stores) - heavy,
+    )
+
+
 @router.get("/stores", response_model=list[AdminStoreRead])
 def list_all_stores(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_super_admin),
 ):
     stores = db.query(Store).all()
-    return [
-        AdminStoreRead(
-            id=store.id,
-            name=store.name,
-            subdomain=store.subdomain,
-            owner_email=store.owner.email,
-            created_at=store.created_at,
-            subscription=(
-                SubscriptionRead.model_validate(sub)
-                if (sub := subscription_crud.get_by_store(db, store.id))
-                else None
-            ),
-            usage_tier=_usage_tier(
-                products=product_crud.count_by_store(db, store.id),
-                orders=order_crud.count_by_store(db, store.id),
-                staff=len(membership_crud.get_by_store(db, store.id)),
-            ),
+    result = []
+    for store in stores:
+        products, orders, staff = _store_usage_counts(db, store.id)
+        result.append(
+            AdminStoreRead(
+                id=store.id,
+                name=store.name,
+                subdomain=store.subdomain,
+                owner_email=store.owner.email,
+                created_at=store.created_at,
+                subscription=(
+                    SubscriptionRead.model_validate(sub)
+                    if (sub := subscription_crud.get_by_store(db, store.id))
+                    else None
+                ),
+                usage_tier=_usage_tier(products=products, orders=orders, staff=staff),
+            )
         )
-        for store in stores
-    ]
+    return result
 
 
 @router.get("/stores/{store_id}/usage", response_model=AdminStoreUsage)
@@ -83,9 +128,7 @@ def get_store_usage(
     if store is None:
         raise HTTPException(status_code=404, detail="Store not found")
 
-    total_products = product_crud.count_by_store(db, store_id)
-    total_orders = order_crud.count_by_store(db, store_id)
-    total_staff = len(membership_crud.get_by_store(db, store_id))
+    total_products, total_orders, total_staff = _store_usage_counts(db, store_id)
     total_categories = len(category_crud.get_by_store(db, store_id))
     total_brands = len(brand_crud.get_by_store(db, store_id))
 
@@ -103,6 +146,56 @@ def get_store_usage(
         total_orders=total_orders,
         average_transaction=average_transaction,
         usage_tier=_usage_tier(products=total_products, orders=total_orders, staff=total_staff),
+    )
+
+
+@router.get("/stores/{store_id}", response_model=StoreRead)
+def get_store(
+    store_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    db_store = store_crud.get(db, store_id)
+    if db_store is None:
+        raise HTTPException(status_code=404, detail="Store not found")
+    return db_store
+
+
+@router.patch("/stores/{store_id}/settings", response_model=StoreRead)
+def update_store_settings_admin(
+    store_id: int,
+    payload: StoreSettingsUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    db_store = store_crud.get(db, store_id)
+    if db_store is None:
+        raise HTTPException(status_code=404, detail="Store not found")
+    return store_crud.update(db, db_store, payload)
+
+
+@router.patch("/users/{user_id}", response_model=UserRead)
+def update_user_admin(
+    user_id: int,
+    payload: AdminUserUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    """Reset a user's name/email/password without knowing their current password —
+    for support cases like a store owner who's locked themselves out."""
+    target = db.query(User).filter(User.id == user_id).first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if payload.email is not None and payload.email != target.email and user_crud.get_user_by_email(db, payload.email):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    return user_crud.update_profile(
+        db,
+        target,
+        name=payload.name,
+        phone=payload.phone,
+        email=payload.email,
+        new_password=payload.new_password,
     )
 
 
