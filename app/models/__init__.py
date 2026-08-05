@@ -11,3 +11,5 @@ from app.models.order import Order, OrderItem
 from app.models.refresh_token import RefreshToken
 from app.models.plan import Plan
 from app.models.subscription import Subscription
+from app.models.site_content import SiteContent
+from app.models.site_feature import SiteFeature

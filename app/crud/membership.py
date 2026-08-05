@@ -9,6 +9,9 @@ class CRUDMembership(CRUDBase[StoreMembership, MembershipCreate, MembershipRoleU
     def get_by_store(self, db: Session, store_id: int) -> list[StoreMembership]:
         return db.query(StoreMembership).filter(StoreMembership.store_id == store_id).all()
 
+    def get_all(self, db: Session) -> list[StoreMembership]:
+        return db.query(StoreMembership).order_by(StoreMembership.store_id, StoreMembership.role).all()
+
     def get_by_store_and_user(self, db: Session, store_id: int, user_id: int) -> StoreMembership | None:
         return (
             db.query(StoreMembership)
