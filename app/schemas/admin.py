@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr
@@ -49,6 +49,11 @@ class AdminMetrics(BaseModel):
     total_orders: int
     heavy_usage_stores: int
     light_usage_stores: int
+
+
+class AdminRegistrationPoint(BaseModel):
+    date: date
+    count: int
 
 
 class AdminMembershipRead(BaseModel):

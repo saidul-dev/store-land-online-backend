@@ -1,9 +1,12 @@
+from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.rbac import require_super_admin
+from app.core.security import utcnow
 from app.crud.brand import brand as brand_crud
 from app.crud.category import category as category_crud
 from app.crud.membership import membership as membership_crud
@@ -25,6 +28,7 @@ from app.models.user import User
 from app.schemas.admin import (
     AdminMembershipRead,
     AdminMetrics,
+    AdminRegistrationPoint,
     AdminStoreRead,
     AdminStoreUsage,
     AdminUserUpdate,
@@ -89,6 +93,28 @@ def get_metrics(
         heavy_usage_stores=heavy,
         light_usage_stores=len(stores) - heavy,
     )
+
+
+@router.get("/stores/registrations", response_model=list[AdminRegistrationPoint])
+def get_store_registrations(
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    """Daily count of stores created in the last `days` days, zero-filled so every
+    day in the range appears (a chart with gaps for quiet days is misleading)."""
+    start_date = (utcnow() - timedelta(days=days - 1)).date()
+
+    counts: dict = defaultdict(int)
+    for (created_at,) in db.query(Store.created_at).all():
+        created = created_at.replace(tzinfo=None) if created_at.tzinfo else created_at
+        if created.date() >= start_date:
+            counts[created.date()] += 1
+
+    return [
+        AdminRegistrationPoint(date=day, count=counts.get(day, 0))
+        for day in (start_date + timedelta(days=i) for i in range(days))
+    ]
 
 
 @router.get("/stores", response_model=list[AdminStoreRead])
