@@ -1,16 +1,23 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.rbac import require_super_admin
+from app.crud.brand import brand as brand_crud
+from app.crud.category import category as category_crud
 from app.crud.membership import membership as membership_crud
+from app.crud.order import order as order_crud
 from app.crud.plan import plan as plan_crud
+from app.crud.product import product as product_crud
 from app.crud.site_content import site_content as site_content_crud
 from app.crud.site_feature import site_feature as site_feature_crud
 from app.crud.subscription import subscription as subscription_crud
 from app.db.session import get_db
+from app.models.order import Order
 from app.models.store import Store
 from app.models.user import User
-from app.schemas.admin import AdminMembershipRead, AdminStoreRead, UpdateStoreSubscription
+from app.schemas.admin import AdminMembershipRead, AdminStoreRead, AdminStoreUsage, UpdateStoreSubscription
 from app.schemas.membership import MembershipRoleUpdate
 from app.schemas.plan import PlanCreate, PlanRead, PlanUpdate
 from app.schemas.site_content import (
@@ -23,6 +30,19 @@ from app.schemas.site_content import (
 from app.schemas.subscription import SubscriptionRead
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# A store counts as "heavy" usage once it clears any one of these — crossing
+# a single dimension (a big catalog, a busy order history, or a full team) is
+# enough to flag it, rather than requiring all three at once.
+HEAVY_USAGE_PRODUCTS = 50
+HEAVY_USAGE_ORDERS = 100
+HEAVY_USAGE_STAFF = 5
+
+
+def _usage_tier(*, products: int, orders: int, staff: int) -> str:
+    if products >= HEAVY_USAGE_PRODUCTS or orders >= HEAVY_USAGE_ORDERS or staff >= HEAVY_USAGE_STAFF:
+        return "heavy"
+    return "light"
 
 
 @router.get("/stores", response_model=list[AdminStoreRead])
@@ -43,9 +63,47 @@ def list_all_stores(
                 if (sub := subscription_crud.get_by_store(db, store.id))
                 else None
             ),
+            usage_tier=_usage_tier(
+                products=product_crud.count_by_store(db, store.id),
+                orders=order_crud.count_by_store(db, store.id),
+                staff=len(membership_crud.get_by_store(db, store.id)),
+            ),
         )
         for store in stores
     ]
+
+
+@router.get("/stores/{store_id}/usage", response_model=AdminStoreUsage)
+def get_store_usage(
+    store_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+):
+    store = db.query(Store).filter(Store.id == store_id).first()
+    if store is None:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    total_products = product_crud.count_by_store(db, store_id)
+    total_orders = order_crud.count_by_store(db, store_id)
+    total_staff = len(membership_crud.get_by_store(db, store_id))
+    total_categories = len(category_crud.get_by_store(db, store_id))
+    total_brands = len(brand_crud.get_by_store(db, store_id))
+
+    non_cancelled = db.query(Order).filter(Order.store_id == store_id, Order.status != "cancelled").all()
+    total_revenue = sum((o.total_amount for o in non_cancelled), Decimal("0"))
+    average_transaction = (total_revenue / len(non_cancelled)) if non_cancelled else Decimal("0")
+
+    return AdminStoreUsage(
+        store_id=store_id,
+        currency=store.currency,
+        total_staff=total_staff,
+        total_categories=total_categories,
+        total_products=total_products,
+        total_brands=total_brands,
+        total_orders=total_orders,
+        average_transaction=average_transaction,
+        usage_tier=_usage_tier(products=total_products, orders=total_orders, staff=total_staff),
+    )
 
 
 @router.get("/staff", response_model=list[AdminMembershipRead])
