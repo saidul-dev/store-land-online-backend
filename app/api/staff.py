@@ -9,6 +9,7 @@ from app.crud.membership import membership as membership_crud
 from app.db.session import get_db
 from app.models.store_membership import StoreMembership
 from app.schemas.membership import MembershipCreate, MembershipRead, MembershipRoleUpdate
+from app.schemas.user import UserCreate
 
 router = APIRouter(prefix="/stores/{store_id}/staff", tags=["staff"])
 
@@ -31,8 +32,12 @@ def add_staff(
 ):
     target_user = user_crud.get_user_by_email(db, payload.email)
     if target_user is None:
-        raise HTTPException(status_code=404, detail="No registered user with that email")
-    if membership_crud.get_by_store_and_user(db, store_id, target_user.id):
+        if not payload.password:
+            raise HTTPException(status_code=404, detail="No registered user with that email")
+        target_user = user_crud.create_user(
+            db, UserCreate(email=payload.email, password=payload.password), name=payload.name
+        )
+    elif membership_crud.get_by_store_and_user(db, store_id, target_user.id):
         raise HTTPException(status_code=400, detail="User is already a member of this store")
     check_staff_limit(db, store_id)
     return membership_crud.add_member(db, store_id=store_id, user_id=target_user.id, role=payload.role)

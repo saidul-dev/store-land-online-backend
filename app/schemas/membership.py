@@ -15,6 +15,10 @@ def _validate_role(value: str) -> str:
 class MembershipCreate(BaseModel):
     email: EmailStr
     role: str
+    # When the email isn't already registered, providing these creates the
+    # account inline instead of 404ing. Ignored if the user already exists.
+    name: str | None = None
+    password: str | None = None
 
     @field_validator("role")
     @classmethod
