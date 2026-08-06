@@ -1,0 +1,1 @@
+PAYMENT_METHODS = {"cod"}

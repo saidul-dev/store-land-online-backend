@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -9,9 +9,17 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(Integer, ForeignKey("stores.id"), nullable=False, index=True)
-    customer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Nullable — guest checkout has no user account, only the contact_* fields below.
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String(20), nullable=False, default="pending", server_default="pending")
     total_amount = Column(Numeric(10, 2), nullable=False)
+    payment_method = Column(String(20), nullable=False, default="cod", server_default="cod")
+    contact_name = Column(String(255), nullable=False)
+    contact_email = Column(String(255), nullable=False)
+    contact_phone = Column(String(30), nullable=False)
+    shipping_address = Column(Text, nullable=False)
+    shipping_city = Column(String(100), nullable=False)
+    shipping_postal_code = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -51,8 +51,15 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
         db: Session,
         *,
         store_id: int,
-        customer_id: int,
+        customer_id: int | None,
         items_in: list[OrderItemCreate],
+        payment_method: str,
+        contact_name: str,
+        contact_email: str,
+        contact_phone: str,
+        shipping_address: str,
+        shipping_city: str,
+        shipping_postal_code: str | None,
     ) -> Order:
         order_items = []
         total = Decimal("0")
@@ -84,7 +91,19 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
                 OrderItem(variant_id=db_variant.id, quantity=item_in.quantity, unit_price=unit_price)
             )
 
-        order = Order(store_id=store_id, customer_id=customer_id, total_amount=total, items=order_items)
+        order = Order(
+            store_id=store_id,
+            customer_id=customer_id,
+            total_amount=total,
+            items=order_items,
+            payment_method=payment_method,
+            contact_name=contact_name,
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+            shipping_address=shipping_address,
+            shipping_city=shipping_city,
+            shipping_postal_code=shipping_postal_code,
+        )
         db.add(order)
         db.commit()
         db.refresh(order)

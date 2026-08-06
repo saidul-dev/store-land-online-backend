@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.permissions import ROLE_PERMISSIONS, Permission
 from app.core.rbac import require_permission
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.crud.membership import membership as membership_crud
 from app.crud.order import InsufficientStockError, VariantNotFoundError
 from app.crud.order import order as order_crud
@@ -22,13 +22,23 @@ def create_order(
     store_id: int,
     payload: OrderCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     if store_crud.get(db, store_id) is None:
         raise HTTPException(status_code=404, detail="Store not found")
     try:
         return order_crud.create_with_items(
-            db, store_id=store_id, customer_id=current_user.id, items_in=payload.items
+            db,
+            store_id=store_id,
+            customer_id=current_user.id if current_user else None,
+            items_in=payload.items,
+            payment_method=payload.payment_method,
+            contact_name=payload.contact_name,
+            contact_email=payload.contact_email,
+            contact_phone=payload.contact_phone,
+            shipping_address=payload.shipping_address,
+            shipping_city=payload.shipping_city,
+            shipping_postal_code=payload.shipping_postal_code,
         )
     except VariantNotFoundError as exc:
         raise HTTPException(

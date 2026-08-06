@@ -21,6 +21,16 @@ def _create_variant(client, headers, store_id, sku="SKU-1", price="10.00", stock
     return response.json()["variants"][0]["id"]
 
 
+CHECKOUT_FIELDS = {
+    "payment_method": "cod",
+    "contact_name": "Test Buyer",
+    "contact_email": "buyer@example.com",
+    "contact_phone": "+15555550100",
+    "shipping_address": "123 Test St",
+    "shipping_city": "Testville",
+}
+
+
 def test_checkout_creates_order_and_decrements_stock(client):
     owner_headers = _register_and_login(client, "oowner@example.com")
     customer_headers = _register_and_login(client, "ocustomer@example.com")
@@ -29,7 +39,7 @@ def test_checkout_creates_order_and_decrements_stock(client):
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 2}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 2}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     )
     assert response.status_code == 201
@@ -50,7 +60,7 @@ def test_checkout_insufficient_stock_fails(client):
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 5}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 5}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     )
     assert response.status_code == 400
@@ -63,7 +73,7 @@ def test_checkout_unknown_variant_fails(client):
 
     response = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": 999999, "quantity": 1}]},
+        json={"items": [{"variant_id": 999999, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     )
     assert response.status_code == 404
@@ -77,7 +87,7 @@ def test_list_my_orders(client):
 
     client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     )
 
@@ -96,7 +106,7 @@ def test_orders_list_is_paginated_newest_first(client):
     for _ in range(3):
         response = client.post(
             f"/api/v1/stores/{store_id}/orders/",
-            json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+            json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
             headers=customer_headers,
         )
         order_ids.append(response.json()["id"])
@@ -130,7 +140,7 @@ def test_owner_can_view_any_order_and_customer_can_view_own(client):
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     ).json()["id"]
 
@@ -152,7 +162,7 @@ def test_other_customer_cannot_view_order(client):
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     ).json()["id"]
 
@@ -170,7 +180,7 @@ def test_staff_can_update_order_status(client):
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     ).json()["id"]
 
@@ -191,7 +201,7 @@ def test_invalid_status_rejected(client):
 
     order_id = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     ).json()["id"]
 

@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/v1/login", auto_error=False)
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
@@ -32,6 +33,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)
+) -> User | None:
+    """Same as get_current_user, but returns None instead of 401 when there's no
+    (or an invalid) token — for endpoints usable by both guests and signed-in users,
+    e.g. storefront checkout."""
+    if token is None:
+        return None
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+    return db.query(User).filter(User.email == email).first()
 
 
 

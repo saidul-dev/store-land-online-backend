@@ -24,6 +24,16 @@ def _create_variant(client, headers, store_id, sku="SKU-1", price="10.00", stock
     return response.json()["variants"][0]["id"]
 
 
+CHECKOUT_FIELDS = {
+    "payment_method": "cod",
+    "contact_name": "Test Buyer",
+    "contact_email": "buyer@example.com",
+    "contact_phone": "+15555550100",
+    "shipping_address": "123 Test St",
+    "shipping_city": "Testville",
+}
+
+
 def test_summary_requires_membership(client):
     owner_headers = _register_and_login(client, "aowner@example.com")
     outsider_headers = _register_and_login(client, "aoutsider@example.com")
@@ -54,12 +64,12 @@ def test_summary_reflects_orders_and_excludes_cancelled_from_revenue(client):
 
     client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 2}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 2}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     )
     cancelled_order = client.post(
         f"/api/v1/stores/{store_id}/orders/",
-        json={"items": [{"variant_id": variant_id, "quantity": 1}]},
+        json={"items": [{"variant_id": variant_id, "quantity": 1}], **CHECKOUT_FIELDS},
         headers=customer_headers,
     ).json()
     client.patch(
