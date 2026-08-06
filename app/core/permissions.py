@@ -12,6 +12,8 @@ class Permission(str, Enum):
     ORDERS_MANAGE = "orders.manage"
     BILLING_VIEW = "billing.view"
     BILLING_MANAGE = "billing.manage"
+    PURCHASES_VIEW = "purchases.view"
+    PURCHASES_MANAGE = "purchases.manage"
 
 
 # Roles are just named bundles of permissions — add/adjust a role by editing
@@ -27,12 +29,16 @@ ROLE_PERMISSIONS: dict[str, set[Permission]] = {
         Permission.ORDERS_VIEW,
         Permission.ORDERS_MANAGE,
         Permission.BILLING_VIEW,
+        Permission.PURCHASES_VIEW,
+        Permission.PURCHASES_MANAGE,
     },
     "staff": {
         Permission.PRODUCTS_VIEW,
         Permission.PRODUCTS_EDIT,
         Permission.ORDERS_VIEW,
         Permission.ORDERS_MANAGE,
+        Permission.PURCHASES_VIEW,
+        Permission.PURCHASES_MANAGE,
     },
     "support": {
         Permission.ORDERS_VIEW,

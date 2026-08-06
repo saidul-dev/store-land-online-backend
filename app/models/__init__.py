@@ -14,3 +14,5 @@ from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.models.site_content import SiteContent
 from app.models.site_feature import SiteFeature
+from app.models.supplier import Supplier
+from app.models.purchase import Purchase, PurchaseItem

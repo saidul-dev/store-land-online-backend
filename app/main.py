@@ -4,7 +4,23 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.uploads import UPLOADS_DIR
-from app.api import posts, auth, comment, store, staff, product, order, category, brand, analytics, admin, plan, site_content
+from app.api import (
+    posts,
+    auth,
+    comment,
+    store,
+    staff,
+    product,
+    order,
+    category,
+    brand,
+    analytics,
+    admin,
+    plan,
+    site_content,
+    supplier,
+    purchase,
+)
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -33,6 +49,8 @@ app.include_router(analytics.router, prefix=API_V1_PREFIX)
 app.include_router(admin.router, prefix=API_V1_PREFIX)
 app.include_router(plan.router, prefix=API_V1_PREFIX)
 app.include_router(site_content.router, prefix=API_V1_PREFIX)
+app.include_router(supplier.router, prefix=API_V1_PREFIX)
+app.include_router(purchase.router, prefix=API_V1_PREFIX)
 
 @app.get("/")
 def read_root():
