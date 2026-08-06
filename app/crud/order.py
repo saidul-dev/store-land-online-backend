@@ -21,10 +21,14 @@ class InsufficientStockError(Exception):
 
 
 class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
-    def get_by_store(self, db: Session, store_id: int, *, skip: int = 0, limit: int = 100) -> list[Order]:
+    def get_by_store(
+        self, db: Session, store_id: int, *, channel: str | None = None, skip: int = 0, limit: int = 100
+    ) -> list[Order]:
+        query = db.query(Order).filter(Order.store_id == store_id)
+        if channel is not None:
+            query = query.filter(Order.channel == channel)
         return (
-            db.query(Order)
-            .filter(Order.store_id == store_id)
+            query
             # id as a tiebreaker: created_at alone isn't unique enough — orders
             # placed in quick succession (e.g. in tests) can share a timestamp.
             .order_by(Order.created_at.desc(), Order.id.desc())
@@ -33,8 +37,11 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
             .all()
         )
 
-    def count_by_store(self, db: Session, store_id: int) -> int:
-        return db.query(Order).filter(Order.store_id == store_id).count()
+    def count_by_store(self, db: Session, store_id: int, *, channel: str | None = None) -> int:
+        query = db.query(Order).filter(Order.store_id == store_id)
+        if channel is not None:
+            query = query.filter(Order.channel == channel)
+        return query.count()
 
     def get_by_store_and_id(self, db: Session, store_id: int, order_id: int) -> Order | None:
         return db.query(Order).filter(Order.store_id == store_id, Order.id == order_id).first()
@@ -60,6 +67,8 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
         shipping_address: str,
         shipping_city: str,
         shipping_postal_code: str | None,
+        customer_ref_id: int | None = None,
+        channel: str = "online",
     ) -> Order:
         order_items = []
         total = Decimal("0")
@@ -85,7 +94,9 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
                 raise InsufficientStockError(db_variant.sku, db_variant.stock_quantity)
 
             db_variant.stock_quantity -= item_in.quantity
-            unit_price = db_variant.price
+            # ManualOrderItemCreate may carry a staff-set price override (e.g. a
+            # walk-in discount); storefront's OrderItemCreate has no such field.
+            unit_price = getattr(item_in, "unit_price", None) or db_variant.price
             total += unit_price * item_in.quantity
             order_items.append(
                 OrderItem(variant_id=db_variant.id, quantity=item_in.quantity, unit_price=unit_price)
@@ -94,6 +105,8 @@ class CRUDOrder(CRUDBase[Order, OrderItemCreate, OrderStatusUpdate]):
         order = Order(
             store_id=store_id,
             customer_id=customer_id,
+            customer_ref_id=customer_ref_id,
+            channel=channel,
             total_amount=total,
             items=order_items,
             payment_method=payment_method,

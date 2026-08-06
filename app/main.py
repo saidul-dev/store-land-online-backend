@@ -20,6 +20,7 @@ from app.api import (
     site_content,
     supplier,
     purchase,
+    customer,
 )
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -51,6 +52,7 @@ app.include_router(plan.router, prefix=API_V1_PREFIX)
 app.include_router(site_content.router, prefix=API_V1_PREFIX)
 app.include_router(supplier.router, prefix=API_V1_PREFIX)
 app.include_router(purchase.router, prefix=API_V1_PREFIX)
+app.include_router(customer.router, prefix=API_V1_PREFIX)
 
 @app.get("/")
 def read_root():

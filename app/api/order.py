@@ -12,7 +12,8 @@ from app.db.session import get_db
 from app.models.store_membership import StoreMembership
 from app.models.user import User
 from app.schemas.common import Page
-from app.schemas.order import OrderCreate, OrderRead, OrderStatusUpdate
+from app.crud.customer import customer as customer_crud
+from app.schemas.order import ManualOrderCreate, OrderCreate, OrderRead, OrderStatusUpdate
 
 router = APIRouter(prefix="/stores/{store_id}/orders", tags=["orders"])
 
@@ -51,6 +52,45 @@ def create_order(
         ) from exc
 
 
+@router.post("/manual", response_model=OrderRead, status_code=201)
+def create_manual_order(
+    store_id: int,
+    payload: ManualOrderCreate,
+    db: Session = Depends(get_db),
+    _membership: StoreMembership = Depends(require_permission(Permission.ORDERS_MANAGE)),
+):
+    """Staff-created sale (e.g. a walk-in/in-person order), as opposed to the
+    buyer-initiated `POST /` used by the storefront checkout."""
+    if payload.customer_ref_id is not None:
+        if customer_crud.get_by_store_and_id(db, store_id, payload.customer_ref_id) is None:
+            raise HTTPException(status_code=404, detail="Customer not found")
+    try:
+        return order_crud.create_with_items(
+            db,
+            store_id=store_id,
+            customer_id=None,
+            customer_ref_id=payload.customer_ref_id,
+            channel="manual",
+            items_in=payload.items,
+            payment_method=payload.payment_method,
+            contact_name=payload.contact_name,
+            contact_email=payload.contact_email,
+            contact_phone=payload.contact_phone,
+            shipping_address=payload.shipping_address,
+            shipping_city=payload.shipping_city,
+            shipping_postal_code=payload.shipping_postal_code,
+        )
+    except VariantNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"Variant {exc.variant_id} not found in this store"
+        ) from exc
+    except InsufficientStockError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock for SKU '{exc.sku}' (available: {exc.available})",
+        ) from exc
+
+
 @router.get("/mine", response_model=list[OrderRead])
 def list_my_orders(
     store_id: int,
@@ -63,14 +103,15 @@ def list_my_orders(
 @router.get("/", response_model=Page[OrderRead])
 def list_orders(
     store_id: int,
+    channel: str | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     _membership: StoreMembership = Depends(require_permission(Permission.ORDERS_VIEW)),
 ):
     skip = (page - 1) * limit
-    items = order_crud.get_by_store(db, store_id, skip=skip, limit=limit)
-    total = order_crud.count_by_store(db, store_id)
+    items = order_crud.get_by_store(db, store_id, channel=channel, skip=skip, limit=limit)
+    total = order_crud.count_by_store(db, store_id, channel=channel)
     return Page(items=items, total=total, page=page, limit=limit)
 
 

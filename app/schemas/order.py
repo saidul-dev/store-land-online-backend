@@ -12,6 +12,12 @@ class OrderItemCreate(BaseModel):
     quantity: int = Field(gt=0)
 
 
+class ManualOrderItemCreate(OrderItemCreate):
+    # Staff can override the catalog price (e.g. a walk-in discount);
+    # omit to charge the variant's current selling price, as normal.
+    unit_price: Decimal | None = Field(default=None, gt=0)
+
+
 class OrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)
     payment_method: str = "cod"
@@ -31,6 +37,12 @@ class OrderCreate(BaseModel):
         return value
 
 
+class ManualOrderCreate(OrderCreate):
+    # Staff-created sale, optionally linked to a store-managed Customer record.
+    items: list[ManualOrderItemCreate] = Field(min_length=1)
+    customer_ref_id: int | None = None
+
+
 class OrderItemRead(BaseModel):
     id: int
     variant_id: int
@@ -45,6 +57,8 @@ class OrderRead(BaseModel):
     id: int
     store_id: int
     customer_id: int | None
+    customer_ref_id: int | None
+    channel: str
     status: str
     total_amount: Decimal
     payment_method: str

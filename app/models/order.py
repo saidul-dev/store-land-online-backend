@@ -11,7 +11,12 @@ class Order(Base):
     store_id = Column(Integer, ForeignKey("stores.id"), nullable=False, index=True)
     # Nullable — guest checkout has no user account, only the contact_* fields below.
     customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Optional link to a store-managed Customer record (separate from the User
+    # account above) — set for manually-created sales, null for normal checkout.
+    customer_ref_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     status = Column(String(20), nullable=False, default="pending", server_default="pending")
+    # "online" = storefront checkout, "manual" = staff-created sale (POST /orders/manual).
+    channel = Column(String(10), nullable=False, default="online", server_default="online")
     total_amount = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String(20), nullable=False, default="cod", server_default="cod")
     contact_name = Column(String(255), nullable=False)
@@ -25,6 +30,7 @@ class Order(Base):
 
     store = relationship("Store")
     customer = relationship("User")
+    customer_ref = relationship("Customer")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 

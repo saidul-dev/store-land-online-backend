@@ -16,3 +16,4 @@ from app.models.site_content import SiteContent
 from app.models.site_feature import SiteFeature
 from app.models.supplier import Supplier
 from app.models.purchase import Purchase, PurchaseItem
+from app.models.customer import Customer
