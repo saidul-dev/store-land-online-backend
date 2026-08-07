@@ -13,9 +13,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - app_network
 
   backend:
     build: .
+    container_name: store_land_backend
     restart: unless-stopped
     depends_on:
       db:
@@ -26,6 +29,12 @@ services:
       - "127.0.0.1:8002:8000"
     volumes:
       - ./uploads:/app/uploads
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
+
+networks:
+  app_network:
+    external: true
