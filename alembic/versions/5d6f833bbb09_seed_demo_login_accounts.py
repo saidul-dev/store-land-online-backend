@@ -26,10 +26,10 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 SUPERADMIN_EMAIL = "admin@autocommerce.com"
-SUPERADMIN_PASSWORD = "SuperAdmin123!"
+SUPERADMIN_PASSWORD = "12345678"
 
 OWNER_EMAIL = "owner@autocommerce.com"
-OWNER_PASSWORD = "DemoOwner123!"
+OWNER_PASSWORD = "12345678"
 STORE_NAME = "Demo Store"
 STORE_SUBDOMAIN = "demo"
 
